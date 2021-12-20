@@ -18,3 +18,6 @@ addCompilerPlugin("edu.berkeley.cs" % "chisel3-plugin" % "3.5-SNAPSHOT" cross Cr
 
 Compile / scalaSource := baseDirectory.value / "src"
 Test / scalaSource := baseDirectory.value / "test"
+
+// LazyModules / Diplomacy have massive problems with multi-threading
+Test / parallelExecution:= false
