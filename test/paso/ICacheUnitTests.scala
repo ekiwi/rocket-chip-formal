@@ -12,14 +12,20 @@ import chisel3._
 class ICacheStandalone(cacheParams: ICacheParams, params: Parameters) extends LazyModule()(params) {
   val cache = LazyModule(new ICache(cacheParams, 0)(p))
   val ioOutNode = BundleBridgeSink[TLBundle]()
-  val out = InModuleBody { ioOutNode.makeIO() }
   val bridge = TLToBundleBridge(DefaultTLParams.manager)
   ioOutNode := bridge
   bridge := TLBuffer() := cache.masterNode
-  lazy val module = new LazyModuleImp(this) {
-    val io = IO(chiselTypeOf(cache.module.io))
-    io <> cache.module.io
-  }
+  lazy val module = new ICacheStandaloneImpl(this)
+}
+
+class ICacheStandaloneImpl(w: ICacheStandalone) extends LazyModuleImp(w) {
+  // TileLink I/O
+  val tl = IO(chiselTypeOf(w.ioOutNode.bundle))
+  tl <> w.ioOutNode.bundle
+
+  // other (frontend) I/O
+  val io = IO(chiselTypeOf(w.cache.module.io))
+  io <> w.cache.module.io
 }
 
 class ICacheUnitTests extends AnyFlatSpec with ChiselScalatestTester {
