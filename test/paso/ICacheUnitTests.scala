@@ -7,6 +7,7 @@ import freechips.rocketchip.rocket._
 import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import org.scalatest.flatspec.AnyFlatSpec
+import chisel3._
 
 class ICacheStandalone(cacheParams: ICacheParams, params: Parameters) extends LazyModule()(params) {
   val cache = LazyModule(new ICache(cacheParams, 0)(p))
@@ -15,7 +16,10 @@ class ICacheStandalone(cacheParams: ICacheParams, params: Parameters) extends La
   val bridge = TLToBundleBridge(DefaultTLParams.manager)
   ioOutNode := bridge
   bridge := TLBuffer() := cache.masterNode
-  lazy val module = new LazyModuleImp(this) {}
+  lazy val module = new LazyModuleImp(this) {
+    val io = IO(chiselTypeOf(cache.module.io))
+    io <> cache.module.io
+  }
 }
 
 class ICacheUnitTests extends AnyFlatSpec with ChiselScalatestTester {
