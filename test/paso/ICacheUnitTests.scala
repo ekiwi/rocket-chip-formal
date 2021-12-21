@@ -8,6 +8,7 @@ import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
+import verif.{DefaultTLParams, VerifTestUtils}
 
 class ICacheStandalone(cacheParams: ICacheParams, params: Parameters) extends LazyModule()(params) {
   val cache = LazyModule(new ICache(cacheParams, 0)(p))

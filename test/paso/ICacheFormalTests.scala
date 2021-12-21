@@ -4,10 +4,10 @@ import chipsalliance.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy.LazyModule
 import freechips.rocketchip.rocket.ICacheParams
 import freechips.rocketchip.tile.TileKey
-
 import chiseltest._
 import chiseltest.formal._
 import org.scalatest.flatspec.AnyFlatSpec
+import verif.VerifTestUtils
 
 class ICacheFormalTests extends AnyFlatSpec with ChiselScalatestTester with Formal {
   behavior.of("ICache")

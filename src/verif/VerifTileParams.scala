@@ -1,4 +1,4 @@
-package paso
+package verif
 
 import chipsalliance.rocketchip.config._
 import freechips.rocketchip.diplomacy._
