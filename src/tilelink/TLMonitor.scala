@@ -115,10 +115,11 @@ class PasoTLMonitor(argEdge: TLEdge, monitorDir: MonitorDirection = MonitorDirec
         edge.master.emitsGet(bundle.source, bundle.size),
         "'A' channel carries Get type which master claims it can't emit" + diplomacyInfo + extra
       )
+      /*
       monAssert(
         edge.slave.supportsGetSafe(edge.address(bundle), bundle.size, None),
         "'A' channel carries Get type which slave claims it can't support" + diplomacyInfo + extra
-      )
+      )*/
       monAssert(source_ok, "'A' channel Get carries invalid source ID" + diplomacyInfo + extra)
       monAssert(is_aligned, "'A' channel Get address not aligned to size" + extra)
       monAssert(bundle.param === 0.U, "'A' channel Get carries invalid param" + extra)
