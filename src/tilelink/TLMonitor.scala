@@ -7,26 +7,15 @@ import chisel3.util._
 import chisel3.internal.sourceinfo.SourceLine
 import freechips.rocketchip.config.Parameters
 import freechips.rocketchip.diplomacy._
-import freechips.rocketchip.formal._
 import freechips.rocketchip.tilelink._
 
-case class TLMonitorArgs(edge: TLEdge)
-
-object TLMonitor {
-  def apply(enable: Boolean, node: TLNode)(implicit p: Parameters): TLNode = {
-    if (enable) {
-      EnableMonitors { implicit p => node := TLEphemeralNode()(ValName("monitor")) }
-    } else { node }
-  }
-}
-
-class TLMonitor(args: TLMonitorArgs, monitorDir: MonitorDirection = MonitorDirection.Monitor) extends Module {
-  require(args.edge.params(TLMonitorStrictMode) || (!args.edge.params(TestplanTestType).formal))
+class PasoTLMonitor(argEdge: TLEdge, monitorDir: MonitorDirection = MonitorDirection.Monitor) extends Module {
+  require(argEdge.params(TLMonitorStrictMode) || (!argEdge.params(TestplanTestType).formal))
 
   val io = IO(new Bundle {
-    val in = Input(new TLBundle(args.edge.bundle))
+    val in = Input(new TLBundle(argEdge.bundle))
   })
-  legalize(io.in, args.edge, reset)
+  legalize(io.in, argEdge, reset)
 
   val cover_prop_class = PropertyClass.Default
 
@@ -46,7 +35,7 @@ class TLMonitor(args: TLMonitorArgs, monitorDir: MonitorDirection = MonitorDirec
     }
 
   def extra = {
-    args.edge.sourceInfo match {
+    argEdge.sourceInfo match {
       case SourceLine(filename, line, col) => s" (connected at $filename:$line:$col)"
       case _                               => ""
     }
@@ -546,13 +535,13 @@ class TLMonitor(args: TLMonitorArgs, monitorDir: MonitorDirection = MonitorDirec
     // These will be constraints for FV setup
     Property(
       MonitorDirection.Monitor,
-      (sym_source === sym_source_d),
+      sym_source === sym_source_d,
       "sym_source should remain stable",
       PropertyClass.Default
     )
     Property(
       MonitorDirection.Monitor,
-      (sym_source <= maxSourceId),
+      sym_source <= maxSourceId,
       "sym_source should take legal value",
       PropertyClass.Default
     )
@@ -567,8 +556,8 @@ class TLMonitor(args: TLMonitorArgs, monitorDir: MonitorDirection = MonitorDirec
     val my_a_first_beat = a_first && (bundle.a.bits.source === sym_source)
     val my_d_first_beat = d_first && (bundle.d.bits.source === sym_source)
 
-    val my_clr_resp_pend = (bundle.d.fire && my_d_first_beat)
-    val my_set_resp_pend = (bundle.a.fire && my_a_first_beat && !my_clr_resp_pend)
+    val my_clr_resp_pend = bundle.d.fire && my_d_first_beat
+    val my_set_resp_pend = bundle.a.fire && my_a_first_beat && !my_clr_resp_pend
     when(my_set_resp_pend) {
       my_resp_pend := true.B
     }.elsewhen(my_clr_resp_pend) {
@@ -1034,15 +1023,15 @@ class TLMonitor(args: TLMonitorArgs, monitorDir: MonitorDirection = MonitorDirec
         s"WARNING: TLMonitor instantiated on a bus with source bits (${sourceBits}) > ${tooBig}; A=>D transaction flight will not be checked"
       )
     } else {
-      if (args.edge.params(TestplanTestType).simulation) {
-        if (args.edge.params(TLMonitorStrictMode)) {
+      if (argEdge.params(TestplanTestType).simulation) {
+        if (argEdge.params(TLMonitorStrictMode)) {
           legalizeADSource(bundle, edge)
           legalizeCDSource(bundle, edge)
         } else {
           legalizeADSourceOld(bundle, edge)
         }
       }
-      if (args.edge.params(TestplanTestType).formal) {
+      if (argEdge.params(TestplanTestType).formal) {
         legalizeADSourceFormal(bundle, edge)
       }
     }

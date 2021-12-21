@@ -16,7 +16,7 @@ class ICacheFormalTests extends AnyFlatSpec with ChiselScalatestTester with Form
   val DefaultICacheParams: ICacheParams = DefaultParams(TileKey).icache.get
 
   it should "bmc for a couple of cycles" in {
-    val dut = LazyModule(new ICacheStandalone(DefaultICacheParams, DefaultParams))
+    val dut = LazyModule(new ICacheStandalone(DefaultICacheParams, DefaultParams, withTLMonitor = true))
 
     val e = intercept[FailedBoundedCheckException] {
       verify(dut.module, Seq(BoundedCheck(10), BtormcEngineAnnotation))

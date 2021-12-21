@@ -8,9 +8,11 @@ import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
+import tilelink.{MonitorDirection, PasoTLMonitor}
 import verif.{DefaultTLParams, VerifTestUtils}
 
-class ICacheStandalone(cacheParams: ICacheParams, params: Parameters) extends LazyModule()(params) {
+class ICacheStandalone(cacheParams: ICacheParams, params: Parameters, val withTLMonitor: Boolean = false)
+    extends LazyModule()(params) {
   val cache = LazyModule(new ICache(cacheParams, 0)(p))
   val ioOutNode = BundleBridgeSink[TLBundle]()
   val bridge = TLToBundleBridge(DefaultTLParams.manager)
@@ -20,9 +22,16 @@ class ICacheStandalone(cacheParams: ICacheParams, params: Parameters) extends La
 }
 
 class ICacheStandaloneImpl(w: ICacheStandalone) extends LazyModuleImp(w) {
-  // TileLink I/O
-  val tl = IO(chiselTypeOf(w.ioOutNode.bundle))
-  tl <> w.ioOutNode.bundle
+  if (w.withTLMonitor) {
+    // TileLink Monitor
+    val (_, edge) = w.bridge.in.head
+    val monitor = Module(new PasoTLMonitor(edge, MonitorDirection.Receiver))
+    monitor.io.in := w.ioOutNode.bundle
+  } else {
+    // TileLink I/O
+    val tl = IO(chiselTypeOf(w.ioOutNode.bundle))
+    tl <> w.ioOutNode.bundle
+  }
 
   // other (frontend) I/O
   val io = IO(chiselTypeOf(w.cache.module.io))
