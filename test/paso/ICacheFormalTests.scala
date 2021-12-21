@@ -18,6 +18,8 @@ class ICacheFormalTests extends AnyFlatSpec with ChiselScalatestTester with Form
   it should "bmc for a couple of cycles" in {
     val dut = LazyModule(new ICacheStandalone(DefaultICacheParams, DefaultParams))
 
+    verify(dut.module, Seq(BoundedCheck(10), BtormcEngineAnnotation))
+
     val e = intercept[FailedBoundedCheckException] {
       verify(dut.module, Seq(BoundedCheck(10), BtormcEngineAnnotation))
     }
