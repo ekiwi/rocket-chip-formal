@@ -460,14 +460,22 @@ class PasoTLMonitor(argEdge: TLEdge, monitorDir: MonitorDirection = MonitorDirec
   def legalizeFormat(bundle: TLBundle, edge: TLEdge) = {
     when(bundle.a.valid) { legalizeFormatA(bundle.a.bits, edge) }
     when(bundle.d.valid) { legalizeFormatD(bundle.d.bits, edge) }
-    if (edge.client.anySupportProbe && edge.manager.anySupportAcquireB) {
-      when(bundle.b.valid) { legalizeFormatB(bundle.b.bits, edge) }
-      when(bundle.c.valid) { legalizeFormatC(bundle.c.bits, edge) }
-      when(bundle.e.valid) { legalizeFormatE(bundle.e.bits, edge) }
-    } else {
-      monAssert(!bundle.b.valid, "'B' channel valid and not TL-C" + extra)
-      monAssert(!bundle.c.valid, "'C' channel valid and not TL-C" + extra)
-      monAssert(!bundle.e.valid, "'E' channel valid and not TL-C" + extra)
+    if (bundle.params.hasBCE) {
+      if (edge.client.anySupportProbe && edge.manager.anySupportAcquireB) {
+        when(bundle.b.valid) {
+          legalizeFormatB(bundle.b.bits, edge)
+        }
+        when(bundle.c.valid) {
+          legalizeFormatC(bundle.c.bits, edge)
+        }
+        when(bundle.e.valid) {
+          legalizeFormatE(bundle.e.bits, edge)
+        }
+      } else {
+        monAssert(!bundle.b.valid, "'B' channel valid and not TL-C" + extra)
+        monAssert(!bundle.c.valid, "'C' channel valid and not TL-C" + extra)
+        monAssert(!bundle.e.valid, "'E' channel valid and not TL-C" + extra)
+      }
     }
   }
 
@@ -665,49 +673,12 @@ class PasoTLMonitor(argEdge: TLEdge, monitorDir: MonitorDirection = MonitorDirec
   def legalizeMultibeat(bundle: TLBundle, edge: TLEdge): Unit = {
     legalizeMultibeatA(bundle.a, edge)
     legalizeMultibeatD(bundle.d, edge)
-    if (edge.client.anySupportProbe && edge.manager.anySupportAcquireB) {
-      legalizeMultibeatB(bundle.b, edge)
-      legalizeMultibeatC(bundle.c, edge)
+    if (bundle.params.hasBCE) {
+      if (edge.client.anySupportProbe && edge.manager.anySupportAcquireB) {
+        legalizeMultibeatB(bundle.b, edge)
+        legalizeMultibeatC(bundle.c, edge)
+      }
     }
-  }
-
-  //This is left in for almond which doesn't adhere to the tilelink protocol
-  @deprecated("Use legalizeADSource instead if possible", "")
-  def legalizeADSourceOld(bundle: TLBundle, edge: TLEdge): Unit = {
-    val inflight = RegInit(0.U(edge.client.endSourceId.W))
-
-    val a_first = edge.first(bundle.a.bits, bundle.a.fire)
-    val d_first = edge.first(bundle.d.bits, bundle.d.fire)
-
-    val a_set = WireInit(0.U(edge.client.endSourceId.W))
-    when(bundle.a.fire && a_first && edge.isRequest(bundle.a.bits)) {
-      a_set := UIntToOH(bundle.a.bits.source)
-      assert(!inflight(bundle.a.bits.source), "'A' channel re-used a source ID" + extra)
-    }
-
-    val d_clr = WireInit(0.U(edge.client.endSourceId.W))
-    val d_release_ack = bundle.d.bits.opcode === TLMessages.ReleaseAck
-    when(bundle.d.fire && d_first && edge.isResponse(bundle.d.bits) && !d_release_ack) {
-      d_clr := UIntToOH(bundle.d.bits.source)
-      assume((a_set | inflight)(bundle.d.bits.source), "'D' channel acknowledged for nothing inflight" + extra)
-    }
-
-    if (edge.manager.minLatency > 0) {
-      assume(
-        a_set =/= d_clr || !a_set.orR,
-        s"'A' and 'D' concurrent, despite minlatency ${edge.manager.minLatency}" + extra
-      )
-    }
-
-    inflight := (inflight | a_set) & ~d_clr
-
-    val watchdog = RegInit(0.U(32.W))
-    // PlusArg("tilelink_timeout", docstring="Kill emulation after INT waiting TileLink cycles. Off if 0.")
-    val limit = 0.U
-    assert(!inflight.orR || limit === 0.U || watchdog < limit, "TileLink timeout expired" + extra)
-
-    watchdog := watchdog + 1.U
-    when(bundle.a.fire || bundle.d.fire) { watchdog := 0.U }
   }
 
   def legalizeADSource(bundle: TLBundle, edge: TLEdge): Unit = {
@@ -1026,9 +997,11 @@ class PasoTLMonitor(argEdge: TLEdge, monitorDir: MonitorDirection = MonitorDirec
       if (argEdge.params(TestplanTestType).simulation) {
         if (argEdge.params(TLMonitorStrictMode)) {
           legalizeADSource(bundle, edge)
-          legalizeCDSource(bundle, edge)
+          if (bundle.params.hasBCE) {
+            legalizeCDSource(bundle, edge)
+          }
         } else {
-          legalizeADSourceOld(bundle, edge)
+          throw new RuntimeException("Only strict mode is supported!")
         }
       }
       if (argEdge.params(TestplanTestType).formal) {
