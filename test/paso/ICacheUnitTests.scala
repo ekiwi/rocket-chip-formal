@@ -8,6 +8,7 @@ import freechips.rocketchip.tile._
 import freechips.rocketchip.tilelink._
 import org.scalatest.flatspec.AnyFlatSpec
 import chisel3._
+import chisel3.util._
 import tilelink.{MonitorDirection, PasoTLMonitor}
 import verif.{DefaultTLParams, VerifTestUtils}
 
@@ -55,16 +56,43 @@ class ICacheStandaloneImpl(w: ICacheStandalone) extends LazyModuleImp(w) {
     when(anyFire) {
       printf(p"[${cycleCount}] --------------------------------\n")
       when(io.req.fire) {
-        printf(p"io.req: addr=${io.req.bits.addr}\n")
+        printf(p"io.req: addr=${Hexadecimal(io.req.bits.addr)}\n")
       }
       when(io.resp.fire) {
-        printf(p"io.resp: ae=${io.resp.bits.ae} replay=${io.resp.bits.replay} data=${io.resp.bits.data}\n")
+        printf(p"io.resp: ae=${io.resp.bits.ae} replay=${io.resp.bits.replay} data=${Hexadecimal(io.resp.bits.data)}\n")
       }
       when(tl.a.fire) {
-        printf(p"A-Channel: opcode=${tl.a.bits.opcode}\n")
+        val bund = tl.a.bits
+        val sizeInBytes = 1.U << bund.size
+        printf(p"A-Channel: ")
+        when(bund.opcode === TLMessages.Get) {
+          printf(p"Get ${sizeInBytes} bytes from ${Hexadecimal(bund.address)} ")
+          printf(p"(source=${bund.source}, mask=${Binary(bund.mask)})\n")
+        }.elsewhen(bund.opcode === TLMessages.PutFullData) {
+          printf(p"PutFullData ${sizeInBytes} bytes to ${Hexadecimal(bund.address)} ")
+          printf(p"(source=${bund.source}, mask=${Binary(bund.mask)})\n")
+          printf(p"  data: ${Hexadecimal(bund.data)}\n")
+        }.otherwise {
+          printf(p"TODO: support A-Channel opcode: ${bund.opcode}\n")
+        }
       }
       when(tl.d.fire) {
-        printf(p"D-Channel: opcode=${tl.d.bits.opcode}\n")
+        val bund = tl.d.bits
+        val sizeInBytes = 1.U << bund.size
+        printf(p"D-Channel: ")
+        when(bund.opcode === TLMessages.AccessAck) {
+          printf(p"AccessAck ${sizeInBytes} bytes from ${bund.source}")
+          when(bund.denied) { printf(" DENIED") }
+          printf("\n")
+        }.elsewhen(bund.opcode === TLMessages.AccessAckData) {
+          printf(p"AccessAckData ${sizeInBytes} bytes from ${bund.source}")
+          when(bund.denied) { printf(" DENIED") }.otherwise {
+            printf(p"\n  data: ${Hexadecimal(bund.data)}")
+          }
+          printf("\n")
+        }.otherwise {
+          printf(p"TODO: support D-Channel opcode: ${bund.opcode}\n")
+        }
       }
     }
   }
